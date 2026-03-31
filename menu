@@ -2149,3 +2149,5 @@ mainGroup:addButton({
 })
 
 library:refreshConfigs()
+
+return library

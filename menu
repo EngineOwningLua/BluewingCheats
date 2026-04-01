@@ -2101,3 +2101,51 @@ function library:refreshConfigs()
         dropdown.refresh(list)
     end
 end
+
+mainGroup:addTextbox({
+    text = "Name",
+    flag = "config_name"
+})
+
+mainGroup:addButton({
+    text = "Create",
+    callback = function()
+        library:createConfig()
+    end
+})
+
+mainGroup:addList({
+    text = "Configs",
+    flag = "selected_config",
+    values = {}
+})
+
+mainGroup:addButton({
+    text = "Load",
+    callback = function()
+        library:loadConfig()
+    end
+})
+
+mainGroup:addButton({
+    text = "Update",
+    callback = function()
+        library:saveConfig()
+    end
+})
+
+mainGroup:addButton({
+    text = "Delete",
+    callback = function()
+        library:deleteConfig()
+    end
+})
+
+mainGroup:addButton({
+    text = "Refresh",
+    callback = function()
+        library:refreshConfigs()
+    end
+})
+
+library:refreshConfigs()

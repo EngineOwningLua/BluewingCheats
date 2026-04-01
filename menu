@@ -1932,3 +1932,172 @@ if library and not library._visibleNotify then
 
     library._visibleNotify = true
 end
+
+local BASE = "workspace/EngineOwning/Engine/settings"
+if not isfolder("workspace") then makefolder("workspace") end
+if not isfolder("workspace/EngineOwning") then makefolder("workspace/EngineOwning") end
+if not isfolder("workspace/EngineOwning/Engine") then makefolder("workspace/EngineOwning/Engine") end
+if not isfolder(BASE) then makefolder(BASE) end
+
+local function getPath(name)
+    return BASE .. "/" .. name .. ".cfg"
+end
+
+local lastLoadedConfig = nil
+
+function library:createConfig()
+    local name = library.flags.config_name
+    if not name or name == "" then
+        return library:notify("Enter a config name")
+    end
+
+    if isfile(getPath(name)) then
+        return library:notify(name .. ".cfg already exists")
+    end
+
+    local data = {}
+
+    for flag, value in pairs(library.flags) do
+        local opt = library.options[flag]
+        if not opt or opt.skipflag then continue end
+
+        if typeof(value) == "Color3" then
+            data[flag] = { value.R, value.G, value.B }
+        elseif typeof(value) == "EnumItem" then
+            local ok, enumTypeName, enumValueName = pcall(function()
+                return tostring(value.EnumType.Name), tostring(value.Name)
+            end)
+            if ok then
+                data[flag] = { enumTypeName, enumValueName }
+            else
+                data[flag] = { "KeyCode", "Unknown" }
+            end
+        else
+            data[flag] = value
+        end
+    end
+
+    writefile(getPath(name), HttpService:JSONEncode(data))
+    library:notify("Created config " .. name)
+    library:refreshConfigs()
+end
+
+
+function library:saveConfig()
+    local name = library.flags.selected_config
+    if not name or name == "" then
+        return library:notify("No config selected")
+    end
+
+    local data = {}
+
+    for flag, value in pairs(library.flags) do
+        local opt = library.options[flag]
+        if not opt or opt.skipflag then continue end
+
+        if typeof(value) == "Color3" then
+            data[flag] = { value.R, value.G, value.B }
+        elseif typeof(value) == "EnumItem" then
+            local ok, enumTypeName, enumValueName = pcall(function()
+                return tostring(value.EnumType.Name), tostring(value.Name)
+            end)
+            if ok then
+                data[flag] = { enumTypeName, enumValueName }
+            else
+                data[flag] = { "KeyCode", "Unknown" }
+            end
+        else
+            data[flag] = value
+        end
+    end
+
+    writefile(getPath(name), HttpService:JSONEncode(data))
+    library:notify("Updated config " .. name)
+    library:refreshConfigs()
+end
+
+
+function library:loadConfig()
+    local name = library.flags.selected_config
+    if not name or name == "" then
+        return library:notify("No config selected")
+    end
+
+    if lastLoadedConfig == name then
+        LocalPlayer:Kick("Config loaded twice: " .. name)
+        return
+    end
+
+    local path = getPath(name)
+    if not isfile(path) then
+        return library:notify("Config not found")
+    end
+
+    local ok, data = pcall(function()
+        return HttpService:JSONDecode(readfile(path))
+    end)
+    if not ok then
+        return library:notify("Failed to load config")
+    end
+
+    for flag, opt in pairs(library.options) do
+        if opt.skipflag then continue end
+        local val = data[flag]
+
+        if val ~= nil then
+            if opt.type == "colorpicker" then
+                opt.changeState(Color3.new(val[1], val[2], val[3]))
+            elseif opt.type == "keybind" then
+                local enumTypeName, enumValueName = val[1], val[2]
+                local enumType = Enum[enumTypeName]
+                if enumType and enumType[enumValueName] then
+                    opt.changeState(enumType[enumValueName])
+                else
+                    warn(string.format(
+                        "[Config Warning] Invalid keybind enum: %s.%s (skipped)",
+                        tostring(enumTypeName),
+                        tostring(enumValueName)
+                    ))
+                end
+            else
+                opt.changeState(val)
+            end
+        end
+    end
+
+    lastLoadedConfig = name
+    library:notify("Loaded config " .. name)
+end
+
+
+function library:deleteConfig()
+    local name = library.flags.selected_config
+    if not name or name == "" then return end
+
+    local path = getPath(name)
+    if isfile(path) then
+        delfile(path)
+        if lastLoadedConfig == name then
+            lastLoadedConfig = nil
+        end
+        library:notify("Deleted config " .. name)
+        library:refreshConfigs()
+    end
+end
+
+
+function library:refreshConfigs()
+    local list = {}
+
+    for _, file in ipairs(listfiles(BASE)) do
+        local name = file:match("([^/\\]+)%.cfg$")
+        if name then
+            table.insert(list, name)
+        end
+    end
+
+    local dropdown = library.options.selected_config
+    if dropdown and dropdown.refresh then
+        dropdown.refresh(list)
+    end
+end
